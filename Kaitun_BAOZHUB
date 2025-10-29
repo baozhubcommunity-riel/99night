@@ -1,0 +1,75 @@
+-- Simple key check: preset key -> verify remote list -> load or kick
+repeat wait() until game:IsLoaded() and game.Players and game.Players.LocalPlayer
+local Players = game:GetService("Players")
+local LocalPlayer = Players.LocalPlayer
+
+-- Preset key (ví dụ bạn đặt trước)
+getgenv().Key = getgenv().Key or "db1770e648d65096662f5f72" -- <-- nếu bạn muốn preset, đổi ở đây hoặc trước khi chạy đoạn này
+
+-- CONFIG: đổi thành file raw chứa danh sách key hợp lệ (mỗi key 1 dòng)
+local KEY_LIST_URL = "https://raw.githubusercontent.com/baozhubcommunity-riel/Kaitun99night/refs/heads/main/Kaitun99night_baoz"
+-- CONFIG: đổi thành URL script chính muốn load khi key hợp lệ
+local MAIN_SCRIPT_URL = "https://raw.githubusercontent.com/baozhubcommunity-riel/Kaitun99night/refs/heads/main/Kaitun99night_baoz"
+
+-- trim helper
+local function trim(s)
+    if not s then return s end
+    return s:match("^%s*(.-)%s*$")
+end
+
+-- fetch remote key list safely
+local function fetchKeyList()
+    local ok, res = pcall(function()
+        return tostring(game:HttpGet(KEY_LIST_URL))
+    end)
+    if not ok then
+        return nil, "Không thể fetch key list: "..tostring(res)
+    end
+    if res == "" then
+        return nil, "Key list rỗng"
+    end
+    return res
+end
+
+-- check key against remote list
+local function isKeyValid(key)
+    if not key or key == "" then
+        return false
+    end0
+    local body, err = fetchKeyList()
+    if not body then
+        warn(err)
+        return false, err
+    end
+    for line in body:gmatch("[^\r\n]+") do
+        line = trim(line)
+        if line ~= "" and line == key then
+            return true
+        end
+    end
+    return false, "Key không khớp"
+end
+
+-- main
+local valid, err = isKeyValid(getgenv().Key)
+if valid then
+    -- key hợp lệ -> load main script
+    local ok, res = pcall(function()
+        local s = loadstring(game:HttpGet('https://raw.githubusercontent.com/baozhubcommunity-riel/Kaitun99night/refs/heads/main/Kaitun99night_baoz'))()
+        return loadstring(s)()
+    end)
+    if not ok then
+        warn("Lỗi khi tải script chính: "..tostring(res))
+        -- nếu muốn kick khi lỗi tải script thì uncomment dòng sau:
+        -- LocalPlayer:Kick("Lỗi khi tải script chính.")
+    end
+else
+    -- key sai hoặc lỗi -> kick
+    local reason = "Key không hợp lệ"
+    if err then reason = reason .. " ("..tostring(err)..")" end
+    -- in case you prefer to print first then kick
+    warn(reason)
+    pcall(function()
+        LocalPlayer:Kick("Bạn đã bị kick: "..reason)
+    end)
+end
